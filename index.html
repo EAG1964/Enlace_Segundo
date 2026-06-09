@@ -220,7 +220,7 @@
             font-size: 0.73rem;
             color: #64748b;
             text-align: center;
-            margin-bottom: 0.18rem;
+            margin-bottom: 0.12rem;
         }
         .micro3d-svg {
             width: 100%;
@@ -232,8 +232,8 @@
         .micro3d-float-b { animation: microFloatB 4.8s ease-in-out infinite alternate; }
         .micro3d-float-c { animation: microFloatC 5.2s ease-in-out infinite alternate; }
         .micro3d-rotate { animation: microRotate 6s ease-in-out infinite alternate; transform-box: fill-box; transform-origin: center; }
-        .micro3d-electron { animation: microElectron 3.2s linear infinite; }
-        .micro3d-electron2 { animation: microElectron2 3.8s linear infinite; }
+        .micro3d-electron { animation: microElectron 3.2s lineal infinite; }
+        .micro3d-electron2 { animation: microElectron2 3.8s lineal infinite; }
         .micro3d-pulse { animation: microPulse 1.5s ease-in-out infinite alternate; }
         @keyframes microVibrate { from { transform: translate(-1px, 0.5px); } to { transform: translate(1px, -0.5px); } }
         @keyframes microFloatA { from { transform: translate(-8px, 3px); } to { transform: translate(10px, -6px); } }
@@ -249,26 +249,42 @@
         .micro3d-three-card {
             width: 100%;
             max-width: 520px;
-            background: linear-gradient(180deg, #0f172a 0%, #111827 100%);
+            background: #020617;
+            background: #020617;
+            background: linear-gradient(180deg, #020617 0%, #0f172a 100%);
             border: 1px solid #334155;
             border-radius: 1rem;
             box-shadow: 0 8px 20px rgba(15, 23, 42, 0.16);
-            padding: 0.38rem;
+            padding: 0.26rem 0.26rem 0.18rem;
             margin: 0 auto;
-            color: white;
+            color: #ffffff;
         }
         .micro3d-three-title {
+            text-shadow: 0 1px 1px rgba(0,0,0,0.28);
             text-align: center;
             font-weight: 800;
-            color: #f8fafc;
-            line-height: 1.15;
-            margin-bottom: 0.03rem;
+            color: #ffffff;
+            line-height: 1.05;
+            margin-bottom: 0.05rem; font-size: 1.02rem;
         }
         .micro3d-three-subtitle {
+            text-shadow: 0 1px 1px rgba(0,0,0,0.22);
             text-align: center;
-            font-size: 0.78rem;
-            color: #cbd5e1;
-            margin-bottom: 0.35rem;
+            font-size: 0.76rem;
+            color: #e2e8f0;
+            margin-bottom: 0.12rem;
+        }
+
+        .micro3d-three-title,
+        .micro3d-three-subtitle {
+            background: #020617 !important;
+            color: #ffffff !important;
+            opacity: 1 !important;
+            position: relative;
+            z-index: 2;
+        }
+        .micro3d-three-subtitle {
+            color: #e2e8f0 !important;
         }
         #micro3d-three-container {
             width: 100%;
@@ -290,7 +306,7 @@
             border-radius: 0.55rem;
             padding: 0.24rem 0.36rem;
             font-size: 0.67rem;
-            line-height: 1.15;
+            line-height: 1.05;
             max-width: 58%;
             pointer-events: none;
         }
@@ -300,8 +316,8 @@
             flex-wrap: wrap;
             justify-content: center;
             gap: 0.22rem 0.45rem;
-            margin-top: 0.22rem;
-            font-size: 0.69rem;
+            margin-top: 0.06rem;
+            font-size: 0.66rem;
             color: #334155;
         }
         .micro3d-legend-item {
@@ -399,11 +415,13 @@
             max-width: 520px;
         }
         .micro3d-diamond-compact .micro3d-three-title {
+            text-shadow: 0 1px 1px rgba(0,0,0,0.28);
             font-size: 0.86rem !important;
             line-height: 1.05 !important;
             margin-bottom: 0.02rem !important;
         }
         .micro3d-diamond-compact .micro3d-three-subtitle {
+            text-shadow: 0 1px 1px rgba(0,0,0,0.22);
             font-size: 0.66rem !important;
             line-height: 1.05 !important;
             margin-bottom: 0.16rem !important;
@@ -813,7 +831,17 @@
         };
 
         window.cycleLp = function(pos) {
-            builderState.lp[pos] = (builderState.lp[pos] + 1) % 5; 
+            let maxLp = 0;
+            const diatomicCap = getDiatomicLonePairCap(pos);
+            if (diatomicCap !== null) {
+                maxLp = diatomicCap;
+            } else if (pos === 'center') {
+                const occupiedDirs = [0, 1, 2, 3].reduce((acc, idx) => acc + (builderState.placed[idx] ? 1 : 0), 0);
+                maxLp = Math.max(0, 4 - occupiedDirs);
+            } else {
+                maxLp = builderState.placed[pos] ? 3 : 0;
+            }
+            builderState.lp[pos] = (builderState.lp[pos] + 1) % (maxLp + 1);
             renderBuilderUI();
         };
         
@@ -2099,19 +2127,53 @@
                 if (builderState.lp[pSlot] !== b.expectedLp.periph[0]) wrongLp = true;
                 
             } else {
+                // Orientation-independent Lewis evaluation:
+                // top / left / right / bottom positions are equivalent if the atom set,
+                // the bond orders, and the lone pairs are chemically correct.
+                const occupiedSlots = [];
                 for (let i = 0; i < 4; i++) {
-                    const hasPeriph = builderState.placed[i] !== null;
+                    const atomObj = builderState.placed[i];
                     const bondLvl = builderState.bonds[i];
-                    if (hasPeriph) {
+                    if (atomObj) {
+                        occupiedSlots.push(i);
                         if (bondLvl === 0) missingBonds = true;
                         else if (bondLvl !== b.expectedBondLevel) wrongBonds = true;
                         bondSum += bondLvl;
-                    } else if (bondLvl > 0) bondsToVoid = true;
+                    } else if (bondLvl > 0) {
+                        bondsToVoid = true;
+                    }
                 }
-                
-                for(let i=0; i<b.periph.length; i++) {
-                    totalLp += builderState.lp[i];
-                    if (builderState.lp[i] !== b.expectedLp.periph[i]) wrongLp = true;
+
+                const expectedPeriph = Array.isArray(b.periph) ? [...b.periph] : [];
+                if (occupiedSlots.length !== expectedPeriph.length) {
+                    missingBonds = true;
+                }
+
+                const usedExpected = new Set();
+                for (const slot of occupiedSlots) {
+                    const placedSym = builderState.placed[slot]?.sym;
+                    let expectedIdx = -1;
+                    for (let j = 0; j < expectedPeriph.length; j++) {
+                        if (!usedExpected.has(j) && expectedPeriph[j] === placedSym) {
+                            expectedIdx = j;
+                            break;
+                        }
+                    }
+
+                    if (expectedIdx === -1) {
+                        wrongBonds = true;
+                        totalLp += builderState.lp[slot] || 0;
+                        continue;
+                    }
+
+                    usedExpected.add(expectedIdx);
+                    totalLp += builderState.lp[slot] || 0;
+                    const expectedLpForThisAtom = b.expectedLp.periph[expectedIdx] ?? 0;
+                    if ((builderState.lp[slot] || 0) !== expectedLpForThisAtom) wrongLp = true;
+                }
+
+                if (usedExpected.size !== expectedPeriph.length) {
+                    missingBonds = true;
                 }
             }
 
@@ -2439,7 +2501,9 @@
             if ((symA === 'C' && symB === 'H') || (symA === 'H' && symB === 'C')) return true;
             if ((symA === 'C' && symB === 'I') || (symA === 'I' && symB === 'C')) return true;
             if (isWeakPolarException(symA, symB)) return true;
-            return diff >= 0.20;
+            // Umbral didáctico: N-Cl, N-Br y otros enlaces heteronucleares ligeramente polares
+            // deben poder generar moléculas polares si la geometría no cancela los dipolos.
+            return diff >= 0.05;
         }
 
         function getBondDipoleSense(symA, symB) {
@@ -2468,11 +2532,15 @@
         function getAngularAngleCategory(formula) {
             const f = formula || '';
             if (['H2O', 'H2S', 'OF2', 'OCl2', 'SF2', 'SCl2'].includes(f)) return 'angular_ax2e2';
+            if (['CO2', 'CS2'].includes(f)) return 'lineal_ax2';
+            if (['PH3', 'PCl3', 'PF3', 'PBr3', 'PI3', 'NH3', 'NF3', 'NCl3', 'NBr3', 'NI3'].includes(f)) return 'trigonal_pyramidal_ax3e1';
             return 'angular_ax2e1';
         }
 
         function getRealBondAngleText(formula, geometry, defaultText) {
+            if (geometry === 'lineal') return '180°';
             if (geometry === 'angular') return '≈ 104,5°';
+            if (geometry === 'piramidal trigonal') return '≈ 107°';
             return defaultText;
         }
 
@@ -3292,8 +3360,8 @@
                 <div class="micro3d-three-card fade-in ${isDiamond3DScenario() ? 'micro3d-diamond-compact' : ''}">
                     <div class="micro3d-three-title">${getMicro3DHeaderText()}</div>
                     <div class="micro3d-three-subtitle">${getMicro3DSubtitleText()}</div>
-                    <div id="micro3d-three-container" style="height:${isDiamond3DScenario() ? '248px' : (isSiO2NetworkScenario() ? '286px' : (isSiCNetworkScenario() ? '286px' : (isC3N4NetworkScenario() ? '300px' : '290px')))};">
-                        <div class="micro3d-overlay" id="micro3d-overlay-text">Arrastra para rotar la vista.</div>
+                    <div id="micro3d-three-container" style="height:${isDiamond3DScenario() ? '220px' : (isSiO2NetworkScenario() ? '236px' : (isSiCNetworkScenario() ? '236px' : (isC3N4NetworkScenario() ? '246px' : '230px')))};">
+                        <div class="micro3d-overlay" id="micro3d-overlay-text"></div>
                     </div>
                     <div id="micro3d-legend" class="micro3d-legend"></div>
                     <div class="micro3d-note">Representación didáctica 3D: resalta la geometría local y la conectividad de la red, no una celda cristalográfica exacta.</div>
@@ -3348,26 +3416,42 @@
 
             buildMicro3DObjects(state);
             // Escalado visual global del modelo 3D.
-            // En SiC se reduce más para que la red quede bien contenida dentro de la ventana.
-            state.root.scale.setScalar(isSiCNetworkScenario() ? 1.35 : (isC3N4NetworkScenario() ? 1.95 : 2.0));
-            if (currentScenario.type === 'metallic') {
-                state.radius = 27.5;
+            // En las redes iónicas se ajusta automáticamente para que no se salga de la ventana.
+            if (currentScenario.type === 'ionic') {
+                state.root.scale.setScalar(getIonicModelScale());
+                state.radius = getIonicModelCameraRadius();
+                state.phi = Math.PI / 2.62;
+            } else {
+                state.root.scale.setScalar(currentScenario.type === 'metallic' ? 1.55 : (isSiCNetworkScenario() ? 1.35 : (isC3N4NetworkScenario() ? 1.95 : 2.0)));
+                if (currentScenario.type === 'metallic') {
+                    state.radius = 26.0;
+                    state.phi = Math.PI / 2.62;
+                }
+                if (isDiamond3DScenario()) {
+                    state.radius = 22.8;
+                    state.phi = Math.PI / 2.78;
+                }
+                if (isSiO2NetworkScenario()) {
+                    state.radius = 39;
+                    state.phi = Math.PI / 2.55;
+                }
+                if (isSiCNetworkScenario()) {
+                    state.radius = 31.5;
+                    state.phi = Math.PI / 2.72;
+                }
+                if (isC3N4NetworkScenario()) {
+                    state.radius = 27.5;
+                    state.phi = Math.PI / 2.58;
+                }
+                if (isLargeSolidDiatomicScenario()) {
+                    state.root.scale.setScalar(1.62);
+                    state.radius = 35.0;
+                    state.phi = Math.PI / 2.58;
+                }
             }
-            if (isDiamond3DScenario()) {
-                state.radius = 22.8;
-                state.phi = Math.PI / 2.78;
-            }
-            if (isSiO2NetworkScenario()) {
-                state.radius = 39;
-                state.phi = Math.PI / 2.55;
-            }
-            if (isSiCNetworkScenario()) {
-                state.radius = 31.5;
-                state.phi = Math.PI / 2.72;
-            }
-            if (isC3N4NetworkScenario()) {
-                state.radius = 27.5;
-                state.phi = Math.PI / 2.58;
+            if (typeof getCompactMolecule3DScale === 'function' && currentScenario.type === 'covalent' && ['CO2','CS2','H2O','H2S','SF2','PH3','PCl3','PF3','PBr3','PI3'].includes(currentScenario.form)) {
+                state.radius = Math.max(state.radius || 0, ['CS2','PCl3','PBr3','PI3'].includes(currentScenario.form) ? 34.0 : 30.0);
+                state.phi = Math.PI / 2.60;
             }
             updateMicro3DCamera(state);
 
@@ -3481,14 +3565,14 @@
 
         function buildMetal3D(state) {
             const sym = currentScenario.e1 || 'M';
-            const grid = 5, spacing = 2.15, offset = (grid * spacing) / 2 - spacing / 2;
+            const grid = 5, spacing = 1.58, offset = (grid * spacing) / 2 - spacing / 2;
             const lineGroup = new THREE.Group();
             const basePositions = [];
             for (let x = 0; x < grid; x++) for (let y = 0; y < grid; y++) for (let z = 0; z < grid; z++) {
                 const base = new THREE.Vector3(x * spacing - offset, y * spacing - offset, z * spacing - offset);
                 const st = getCPKAtomStyle(sym);
                 // En redes metálicas usamos color CPK del metal para los cationes.
-                const ion = makeMicroSphere(sym, 0.72, st.color, 0.65, 0.26);
+                const ion = makeMicroSphere(sym, 0.74, st.color, 0.65, 0.26);
                 ion.position.copy(base);
                 state.root.add(ion);
                 state.ions.push({ mesh: ion, basePos: base, phase: Math.random() * Math.PI * 2, speed: 0.045 + Math.random() * 0.03 });
@@ -3501,7 +3585,7 @@
                 }
             }
             state.root.add(lineGroup);
-            state.boundingBox = (grid * spacing) / 2 - 0.55;
+            state.boundingBox = (grid * spacing) / 2 + 0.35;
             const electronGeo = new THREE.SphereGeometry(0.22, 10, 10);
             const electronMat = new THREE.MeshBasicMaterial({ color: 0x00ffff });
             for (let i = 0; i < 120; i++) {
@@ -3515,30 +3599,37 @@
         function buildIonic3D(state) {
             const cat = currentScenario.e1 || 'Ca';
             const an = currentScenario.e2 || 'P';
-            const grid = 4, spacing = 2.65, offset = (grid * spacing) / 2 - spacing / 2;
+            const catSt = getIonicVisualStyle(cat, true);
+            const anSt = getIonicVisualStyle(an, false);
+            const grid = 4;
+            const spacing = Math.max(1.45, Math.min(1.95, catSt.radius + anSt.radius + 0.10));
+            const offset = (grid * spacing) / 2 - spacing / 2;
             const basePositions = [];
+            const lineGroup = new THREE.Group();
+
             for (let x = 0; x < grid; x++) for (let y = 0; y < grid; y++) for (let z = 0; z < grid; z++) {
                 const positive = (x + y + z) % 2 === 0;
                 const ionSym = positive ? cat : an;
-                const charge = getSimpleIonChargeText(ionSym, positive);
-                const label = `${ionSym}${charge}`;
-                const st = getCPKAtomStyle(ionSym);
-                // En redes iónicas usamos el color CPK del elemento, no un color genérico de carga.
-                const mesh = makeMicroSphere(label, positive ? 1.08 : 1.28, st.color, 0.12, 0.36);
+                const st = positive ? catSt : anSt;
+                const label = `${ionSym}${getSimpleIonChargeText(ionSym, positive)}`;
+                const mesh = makeMicroSphere(label, st.radius, st.color, 0.18, 0.42);
                 const base = new THREE.Vector3(x * spacing - offset, y * spacing - offset, z * spacing - offset);
                 mesh.position.copy(base);
                 state.root.add(mesh);
-                state.ions.push({ mesh, basePos: base, phase: Math.random() * Math.PI * 2, speed: 0.035 + Math.random() * 0.025 });
+                state.ions.push({ mesh, basePos: base, phase: Math.random() * Math.PI * 2, speed: 0.030 + Math.random() * 0.020 });
                 basePositions.push(base);
             }
-            const lineGroup = new THREE.Group();
+
             for (let i = 0; i < basePositions.length; i++) {
                 for (let j = i + 1; j < basePositions.length; j++) {
                     const dist = basePositions[i].distanceTo(basePositions[j]);
-                    if (dist < spacing + 0.10) lineGroup.add(makeMicroLine(basePositions[i], basePositions[j], 0xffffff, 0.10));
+                    if (dist < spacing + 0.08) {
+                        lineGroup.add(makeMicroLine(basePositions[i], basePositions[j], 0xffffff, 0.09));
+                    }
                 }
             }
             state.root.add(lineGroup);
+            state.boundingBox = offset + Math.max(catSt.radius, anSt.radius) + 0.25;
         }
 
         function buildDiamond3D(state) {
@@ -3869,13 +3960,17 @@
 
         function buildNobleGas3D(state) {
             const sym = currentScenario.e1 || 'Ne';
-            state.boundingBox = 10;
+            state.boundingBox = 9.2;
             for (let i = 0; i < 14; i++) {
                 const st = getCPKAtomStyle(sym);
                 const a = makeMicroSphere(sym, st.radius * (0.95 + Math.random()*0.12), st.color, 0.04, 0.34);
-                a.position.set((Math.random()-0.5)*18, (Math.random()-0.5)*14, (Math.random()-0.5)*16);
+                a.position.set((Math.random()-0.5)*16.0, (Math.random()-0.5)*11.5, (Math.random()-0.5)*14.0);
+                const dir = new THREE.Vector3((Math.random()-0.5), (Math.random()-0.5), (Math.random()-0.5));
+                if (dir.length() < 0.001) dir.set(1, 0, 0);
+                dir.normalize().multiplyScalar(0.095 + Math.random() * 0.025);
                 state.root.add(a);
-                state.electrons.push({ mesh: a, velocity: new THREE.Vector3((Math.random()-0.5)*0.16, (Math.random()-0.5)*0.16, (Math.random()-0.5)*0.16) });
+                // Noble gas atoms move in straight lines at constant speed between wall collisions.
+                state.electrons.push({ mesh: a, velocity: dir, phaseState: 'noble_gas_atom' });
             }
         }
 
@@ -3883,7 +3978,7 @@
             const styles = {
                 H:  { color: 0xffffff, radius: 0.46 },
                 C:  { color: 0x5f5f5f, radius: 0.78 },
-                N:  { color: 0x3050f8, radius: 0.72 },
+                N:  { color: 0x0000ff, radius: 0.72 },
                 O:  { color: 0xff0d0d, radius: 0.70 },
                 F:  { color: 0x7fe34a, radius: 0.66 },
                 Cl: { color: 0x1ff01f, radius: 0.92 },
@@ -3935,6 +4030,62 @@
             return 'gas';
         }
 
+        function isLargeSolidDiatomicScenario() {
+            if (!currentScenario || currentScenario.type !== 'covalent') return false;
+            const phase = getMolecularPhysicalStateRT(currentScenario);
+            if (phase !== 'solid') return false;
+            const b = currentScenario.builder || {};
+            const center = b.center || currentScenario.e1 || '';
+            const periph = (b.periph && b.periph[0]) || currentScenario.e2 || currentScenario.e1 || '';
+            const data = typeof getMolecularGeometryData === 'function' ? getMolecularGeometryData() : null;
+            const isDiatomic = !!(data?.isDiatomic || ((b.periph || []).length === 1 && center === periph));
+            if (!isDiatomic) return false;
+            const maxR = Math.max(getCPKAtomStyle(center).radius, getCPKAtomStyle(periph).radius);
+            return maxR >= 1.15;
+        }
+
+        function getDiatomicLonePairCap(pos) {
+            if (!currentScenario || currentScenario.type !== 'covalent') return null;
+            const b = currentScenario.builder || {};
+            const data = typeof getMolecularGeometryData === 'function' ? getMolecularGeometryData() : null;
+            const isDiatomic = !!(data?.isDiatomic || ((b.periph || []).length === 1));
+            if (!isDiatomic) return null;
+            const exp = b.expectedLp || {};
+            if (pos === 'center') return Number.isFinite(exp.center) ? exp.center : null;
+            const idx = Number(pos);
+            if (!Number.isNaN(idx) && Array.isArray(exp.periph) && Number.isFinite(exp.periph[idx])) return exp.periph[idx];
+            if (Array.isArray(exp.periph) && Number.isFinite(exp.periph[0])) return exp.periph[0];
+            return null;
+        }
+
+        function getDiatomicScaleForPhase(phase, maxRadius) {
+            if (phase === 'solid') {
+                if (maxRadius >= 1.15) return 0.78;
+                if (maxRadius >= 1.00) return 0.88;
+                return 1.00;
+            }
+            if (phase === 'liquid') {
+                if (maxRadius >= 1.00) return 0.92;
+                return 1.00;
+            }
+            if (maxRadius <= 0.60) return 1.34;
+            if (maxRadius <= 0.72) return 1.28;
+            if (maxRadius <= 0.82) return 1.24;
+            if (maxRadius <= 0.98) return 1.16;
+            if (maxRadius <= 1.08) return 1.06;
+            return 0.96;
+        }
+
+
+        function getCompactMolecule3DScale(formula, kind, phase, maxRadius) {
+            const f = formula || '';
+            if (['CO2', 'CS2'].includes(f)) return maxRadius >= 1.0 ? 0.78 : 0.88;
+            if (['H2O', 'H2S', 'SF2', 'OF2', 'OCl2', 'SCl2'].includes(f)) return maxRadius >= 1.0 ? 0.86 : 0.96;
+            if (['PH3', 'PCl3', 'PF3', 'PBr3', 'PI3', 'NH3', 'NF3', 'NCl3', 'NBr3', 'NI3'].includes(f)) return maxRadius >= 1.0 ? 0.82 : 0.94;
+            if (kind === 'diatomic') return getDiatomicScaleForPhase(phase, maxRadius);
+            return phase === 'gas' ? 1.35 : (phase === 'liquid' ? 0.98 : 0.95);
+        }
+
         function makeSpaceFillingMoleculeGroup(kind, center, periph) {
             const g = new THREE.Group();
             const centerStyle = getCPKAtomStyle(center);
@@ -3960,7 +4111,7 @@
 
             g.add(centralAtom);
 
-            if (kind === 'linear') {
+            if (kind === 'lineal') {
                 addAtom([-bondDist, 0, 0], periph);
                 addAtom([ bondDist, 0, 0], periph);
             } else if (kind === 'angular') {
@@ -4072,26 +4223,81 @@
             return n === 1 ? '−' : `${n}−`;
         }
 
+        function getSimpleIonChargeHTML(sym, isCation) {
+            return `<sup>${getSimpleIonChargeText(sym, isCation)}</sup>`;
+        }
+
+        function getIonicVisualStyle(sym, isCation) {
+            const cat = {
+                Li: { color: 0x9333ea, radius: 0.54, name: 'violeta intenso' },
+                Na: { color: 0x7c3aed, radius: 0.70, name: 'violeta' },
+                K:  { color: 0x6d28d9, radius: 0.88, name: 'violeta oscuro' },
+                Rb: { color: 0x5b21b6, radius: 0.96, name: 'violeta intenso' },
+                Cs: { color: 0x4c1d95, radius: 1.05, name: 'violeta oscuro' },
+                Be: { color: 0x06b6d4, radius: 0.42, name: 'cian' },
+                Mg: { color: 0x10b981, radius: 0.56, name: 'verde esmeralda' },
+                Ca: { color: 0x22c55e, radius: 0.78, name: 'verde' },
+                Sr: { color: 0x16a34a, radius: 0.88, name: 'verde intenso' },
+                Ba: { color: 0x15803d, radius: 0.98, name: 'verde oscuro' },
+                Al: { color: 0xec4899, radius: 0.48, name: 'rosa intenso' }
+            };
+            const an = {
+                H:  { color: 0xffffff, radius: 0.78, name: 'blanco' },
+                F:  { color: 0xa3e635, radius: 0.76, name: 'verde claro' },
+                Cl: { color: 0x22c55e, radius: 0.97, name: 'verde' },
+                Br: { color: 0xa34724, radius: 1.05, name: 'marrón rojizo' },
+                I:  { color: 0x8b5cf6, radius: 1.14, name: 'violeta' },
+                N:  { color: 0x0000ff, radius: 0.90, name: 'azul intenso' },
+                P:  { color: 0xf97316, radius: 1.10, name: 'naranja' },
+                S:  { color: 0xfacc15, radius: 1.00, name: 'amarillo' }
+            };
+            const table = isCation ? cat : an;
+            if (table[sym]) return table[sym];
+            const fallback = getCPKAtomStyle(sym);
+            return { color: fallback.color, radius: Math.max(0.60, Math.min(1.00, fallback.radius * (isCation ? 0.72 : 0.92))), name: getCPKColorName(sym) };
+        }
+
+        function getIonicModelScale() {
+            const cat = getIonicVisualStyle(currentScenario.e1 || 'Na', true);
+            const an = getIonicVisualStyle(currentScenario.e2 || 'Cl', false);
+            const maxR = Math.max(cat.radius, an.radius);
+            if (maxR >= 1.12) return 1.28;
+            if (maxR >= 1.00) return 1.34;
+            if (maxR >= 0.86) return 1.44;
+            return 1.56;
+        }
+
+        function getIonicModelCameraRadius() {
+            const cat = getIonicVisualStyle(currentScenario.e1 || 'Na', true);
+            const an = getIonicVisualStyle(currentScenario.e2 || 'Cl', false);
+            const maxR = Math.max(cat.radius, an.radius);
+            if (maxR >= 1.12) return 31.5;
+            if (maxR >= 1.00) return 30.2;
+            if (maxR >= 0.86) return 28.8;
+            return 27.0;
+        }
+
         function getMicro3DSubtitleText() {
             const syms = getLegendAtomSymbols();
             const legend = syms.map(sym => `${sym}: ${getCPKColorName(sym)}`).join('. ');
             const formulaPlain = currentScenario.form || currentScenario.e1 || '';
-            if (currentScenario.type === 'covalent') return `Moléculas CPK de ${formulaPlain}. ${legend}`;
+            const formulaHtml = formatChemicalFormulaHTML(formulaPlain);
+            if (currentScenario.type === 'covalent') return `Moléculas CPK de ${formulaHtml}. ${legend}`;
             if (currentScenario.type === 'ionic') {
                 const cat = currentScenario.e1;
                 const an = currentScenario.e2;
-                const catCharge = getSimpleIonChargeText(cat, true);
-                const anCharge = getSimpleIonChargeText(an, false);
-                return `Red iónica CPK de ${formulaPlain}. ${cat}${catCharge}: ${getCPKColorName(cat)}. ${an}${anCharge}: ${getCPKColorName(an)}`;
+                const catSt = getIonicVisualStyle(cat, true);
+                const anSt = getIonicVisualStyle(an, false);
+                return `Red iónica CPK de ${formulaHtml}. ${cat}${getSimpleIonChargeHTML(cat, true)}: ${catSt.name}. ${an}${getSimpleIonChargeHTML(an, false)}: ${anSt.name}`;
             }
-            if (currentScenario.type === 'metallic') return `Red metálica de cationes CPK de ${formulaPlain}. ${legend}. e⁻ deslocalizados: cian`;
+            if (currentScenario.type === 'metallic') return `Red metálica de cationes CPK de ${formulaHtml}. ${legend}. e⁻ deslocalizados: cian`;
             if (currentScenario.type === 'covalent_atomic') {
-                if (formulaPlain === 'SiC') return `Red covalente 3D tipo diamante de ${formulaPlain}. ${legend}`;
-                if (formulaPlain === 'C3N4') return `Red covalente 3D de ${formulaPlain}. C Td: 4 N a 109,5° · N unido a 3 C. ${legend}`;
-                if (formulaPlain === 'SiO2') return `Red covalente 3D tipo cuarzo de ${formulaPlain}. ${legend}`;
-                return `Red covalente CPK de ${formulaPlain}. ${legend}`;
+                if (formulaPlain === 'SiC') return `Red covalente 3D tipo diamante de ${formulaHtml}. ${legend}`;
+                if (formulaPlain === 'C3N4') return `Red covalente 3D de ${formulaHtml}. C Td: 4 N a 109,5° · N unido a 3 C. ${legend}`;
+                if (formulaPlain === 'SiO2') return `Red covalente 3D tipo cuarzo de ${formulaHtml}. ${legend}`;
+                return `Red covalente CPK de ${formulaHtml}. ${legend}`;
             }
-            return `Átomos CPK de ${formulaPlain}. ${legend}`;
+            return `Átomos CPK de ${formulaHtml}. ${legend}`;
         }
 
         function colorHexToCss(num) {
@@ -4104,7 +4310,8 @@
             const syms = getLegendAtomSymbols();
             if (!syms.length) { box.innerHTML = ''; return; }
             box.innerHTML = syms.map(sym => {
-                const st = getCPKAtomStyle(sym);
+                const isIonCation = currentScenario.type === 'ionic' && sym === currentScenario.e1;
+                const st = currentScenario.type === 'ionic' ? getIonicVisualStyle(sym, isIonCation) : getCPKAtomStyle(sym);
                 return `<span class="micro3d-legend-item"><span class="micro3d-legend-dot" style="background:${colorHexToCss(st.color)}"></span><b>${sym}</b></span>`;
             }).join('');
         }
@@ -4148,7 +4355,7 @@
             const periph = (b.periph && b.periph[0]) || currentScenario.e2 || currentScenario.e1 || 'B';
             let kind = 'diatomic';
             if (data?.isDiatomic) kind = 'diatomic';
-            else if (data?.geometry === 'lineal') kind = 'linear';
+            else if (data?.geometry === 'lineal') kind = 'lineal';
             else if (data?.geometry === 'angular') kind = 'angular';
             else if (data?.geometry === 'piramide_triangular') kind = 'pyramid';
             else if (data?.geometry === 'tetraedrica') kind = 'tetra';
@@ -4156,6 +4363,8 @@
             const phase = getMolecularPhysicalStateRT(currentScenario);
             state.molecularPhase = phase;
             addMolecularStateContainer(state, phase);
+            const maxMolecularAtomRadius = Math.max(getCPKAtomStyle(center).radius, getCPKAtomStyle(periph).radius);
+            const isLargeSolidDiatomic = phase === 'solid' && kind === 'diatomic' && maxMolecularAtomRadius >= 1.15;
 
             let placements = [];
             let count = 0;
@@ -4188,17 +4397,19 @@
                 }
                 state.boundingBox = 8.0;
             } else {
-                const xs = [-5.2, 0, 5.2], ys = [-3.8, 1.2, 6.0], zs = [-4.3, 1.0, 5.2];
+                const xs = isLargeSolidDiatomic ? [-4.6, 0, 4.6] : [-5.2, 0, 5.2];
+                const ys = isLargeSolidDiatomic ? [-3.3, 1.0, 5.3] : [-3.8, 1.2, 6.0];
+                const zs = isLargeSolidDiatomic ? [-3.8, 0.8, 4.4] : [-4.3, 1.0, 5.2];
                 xs.forEach(x => ys.forEach(y => zs.forEach(z => {
-                    if (placements.length < 18) placements.push([x,y-1.8,z]);
+                    if (placements.length < 18) placements.push([x, y - (isLargeSolidDiatomic ? 1.3 : 1.8), z]);
                 })));
                 count = placements.length;
-                state.boundingBox = 8.6;
+                state.boundingBox = isLargeSolidDiatomic ? 9.8 : 8.6;
             }
 
             placements.forEach((p, i) => {
                 const m = makeSpaceFillingMoleculeGroup(kind, center, periph);
-                const scale = phase === 'gas' ? (kind === 'diatomic' ? 1.20 : 1.45) : (phase === 'liquid' ? 1.00 : 1.05);
+                const scale = getCompactMolecule3DScale(currentScenario.form, kind, phase, maxMolecularAtomRadius);
                 m.scale.setScalar(scale);
                 m.position.set(...p);
                 m.rotation.set(Math.random()*Math.PI*2, Math.random()*Math.PI*2, Math.random()*Math.PI*2);
@@ -4286,6 +4497,17 @@
                 }
             });
             state.electrons.forEach(el => {
+                if (el.phaseState === 'noble_gas_atom') {
+                    // Ideal-gas didactic motion: straight trajectory, constant speed, elastic wall bounce.
+                    el.mesh.position.add(el.velocity);
+                    ['x','y','z'].forEach(axis => {
+                        if (Math.abs(el.mesh.position[axis]) > state.boundingBox) {
+                            el.mesh.position[axis] = Math.sign(el.mesh.position[axis]) * state.boundingBox;
+                            el.velocity[axis] *= -1;
+                        }
+                    });
+                    return;
+                }
                 el.velocity.x += (Math.random()-0.5)*0.018;
                 el.velocity.y += (Math.random()-0.5)*0.018;
                 el.velocity.z += (Math.random()-0.5)*0.018;
@@ -4300,7 +4522,7 @@
             });
 
             if (!state.isDragging) {
-                state.theta -= 0.0015;
+                if (currentScenario.type !== 'none') state.theta -= 0.0015;
                 updateMicro3DCamera(state);
             }
             state.renderer.render(state.scene, state.camera);
@@ -4612,6 +4834,41 @@
                 moleculePolar = true;
             }
 
+            const formulaPolarityOverrides = {
+                CO2: { bonds: true, molecule: false },
+                CS2: { bonds: true, molecule: false },
+                H2O: { bonds: true, molecule: true },
+                H2S: { bonds: true, molecule: true },
+                SF2: { bonds: true, molecule: true },
+                OF2: { bonds: true, molecule: true },
+                OCl2: { bonds: true, molecule: true },
+                SCl2: { bonds: true, molecule: true },
+                NH3: { bonds: true, molecule: true },
+                NF3: { bonds: true, molecule: true },
+                NCl3: { bonds: true, molecule: true },
+                NBr3: { bonds: true, molecule: true },
+                NI3: { bonds: true, molecule: true },
+                PH3: { bonds: true, molecule: true },
+                PF3: { bonds: true, molecule: true },
+                PCl3: { bonds: true, molecule: true },
+                PBr3: { bonds: true, molecule: true },
+                PI3: { bonds: true, molecule: true },
+                CH4: { bonds: true, molecule: false },
+                CF4: { bonds: true, molecule: false },
+                CCl4: { bonds: true, molecule: false },
+                CBr4: { bonds: true, molecule: false },
+                CI4: { bonds: true, molecule: false },
+                SiH4: { bonds: true, molecule: false },
+                SiF4: { bonds: true, molecule: false },
+                SiCl4: { bonds: true, molecule: false },
+                SiBr4: { bonds: true, molecule: false },
+                SiI4: { bonds: true, molecule: false }
+            };
+            if (formulaPolarityOverrides[currentScenario.form]) {
+                individualBondsPolar = formulaPolarityOverrides[currentScenario.form].bonds;
+                moleculePolar = formulaPolarityOverrides[currentScenario.form].molecule;
+            }
+
             // Fosfina: pirámide trigonal con momento dipolar experimental pequeño pero no nulo.
             if (currentScenario.form === 'PH3') {
                 individualBondsPolar = true;
@@ -4730,11 +4987,11 @@
                 return;
             }
 
-            const focus = document.getElementById('geomFocusAtom').value;
-            const domains = document.getElementById('geomDomains').value;
-            const eGeometry = document.getElementById('geomEGeometry').value;
-            const mGeometry = document.getElementById('geomMGeometry').value;
-            const angle = document.getElementById('geomAngle').value;
+            const focus = document.getElementById('geomFocusAtom')?.value || '';
+            const domains = document.getElementById('geomDomains')?.value || '';
+            const eGeometry = document.getElementById('geomEGeometry')?.value || '';
+            const mGeometry = document.getElementById('geomMGeometry')?.value || '';
+            const angle = document.getElementById('geomAngle')?.value || '';
 
             if (!focus || !domains || !eGeometry || !mGeometry || !angle) {
                 addTutorMessage("Por favor, completa los cinco apartados de geometría molecular antes de comprobar.");
@@ -4744,14 +5001,14 @@
             currentStepAttempts++;
 
             const shapeLabels = {
-                lineal: 'Lineal', angular: 'Angular', plano_triangular: 'Plano triangular',
+                lineal: 'Lineal', linear: 'Lineal', angular: 'Angular', plano_triangular: 'Plano triangular',
                 piramide_triangular: 'Pirámide triangular', tetraedrica: 'Tetraédrica'
             };
             const focusText = focus === 'any' ? 'cualquiera de los dos átomos' : focus;
             const geomAngleEl = document.getElementById('geomAngle');
-            const angleTextSelected = geomAngleEl.options[geomAngleEl.selectedIndex].text;
+            const angleTextSelected = geomAngleEl?.options?.[geomAngleEl.selectedIndex]?.text || angle;
             inputArea.innerHTML = '';
-            addUserMessage(`Geometría: átomo de referencia ${focusText}; ${domains} pares de e⁻; geometría electrónica ${shapeLabels[eGeometry]}; geometría molecular ${shapeLabels[mGeometry]}; ángulo ${angleTextSelected}.`);
+            addUserMessage(`Geometría: átomo de referencia ${focusText}; ${domains} pares de e⁻; geometría electrónica ${shapeLabels[eGeometry] || eGeometry}; geometría molecular ${shapeLabels[mGeometry] || mGeometry}; ángulo ${angleTextSelected}.`);
 
             const okFocus = data.isDiatomic ? (focus === 'any' || focus === data.center || focus === currentScenario.builder.periph[0]) : (focus === data.expectedFocus);
             const okDomains = parseInt(domains) === data.electronDomains;
@@ -4761,15 +5018,25 @@
 
             safeSetTimeout(() => {
                 if (okFocus && okDomains && okEGeometry && okMGeometry && okAngle) {
-                    renderMolecularGeometryOnStage(false);
-                    addTutorMessage(`<b class="text-red-600 font-bold">¡Muy bien!</b> La geometría electrónica es <b>${shapeLabels[data.electronGeometry]}</b> y la geometría molecular es <b class="text-red-600 font-bold">${shapeLabels[data.molecularGeometry]}</b>, con un ángulo de enlace de <b>${data.angleText}</b>.`);
-                    showContinueButton('stepMolecularPolarity()', 'Seguir con polaridad');
+                    try {
+                        renderMolecularGeometryOnStage(false);
+                    } catch (err) {
+                        console.error('Error al dibujar la geometría molecular:', err);
+                        renderLewisStructureOnStage();
+                    }
+                    addTutorMessage(`<b class="text-red-600 font-bold">¡Muy bien!</b> La geometría electrónica es <b>${shapeLabels[data.electronGeometry] || data.electronGeometry}</b> y la geometría molecular es <b class="text-red-600 font-bold">${shapeLabels[data.molecularGeometry] || data.molecularGeometry}</b>, con un ángulo de enlace de <b>${data.angleText}</b>.`);
+                    showContinueButton('stepMolecularPolarity()', 'Continuar a polaridad');
                 } else {
                     if (currentStepAttempts >= 3) {
-                        renderMolecularGeometryOnStage(false);
+                        try {
+                            renderMolecularGeometryOnStage(false);
+                        } catch (err) {
+                            console.error('Error al dibujar la geometría molecular:', err);
+                            renderLewisStructureOnStage();
+                        }
                         const focusCorrect = data.expectedFocus === 'any' ? 'cualquiera de los dos átomos' : data.center;
-                        addTutorMessage(`Has agotado tus 3 intentos. Debemos fijarnos en <b>${focusCorrect}</b>. Hay <b>${data.electronDomains}</b> pares de electrones alrededor. La geometría electrónica correcta es <b>${shapeLabels[data.electronGeometry]}</b>, la geometría molecular es <b class="text-red-600 font-bold">${shapeLabels[data.molecularGeometry]}</b> y el ángulo es <b>${data.angleText}</b>.`);
-                        showContinueButton('stepMolecularPolarity()', 'Seguir con polaridad');
+                        addTutorMessage(`Has usado los 3 intentos. Debemos fijarnos en <b>${focusCorrect}</b>. Hay <b>${data.electronDomains}</b> pares de electrones alrededor. La geometría electrónica correcta es <b>${shapeLabels[data.electronGeometry] || data.electronGeometry}</b>, la geometría molecular es <b class="text-red-600 font-bold">${shapeLabels[data.molecularGeometry] || data.molecularGeometry}</b> y el ángulo es <b>${data.angleText}</b>.`);
+                        showContinueButton('stepMolecularPolarity()', 'Continuar a polaridad');
                     } else {
                         let hints = [];
                         if (!okFocus) hints.push(data.expectedFocus === 'any' ? 'en una molécula diatómica puedes fijarte en cualquiera de los dos átomos' : 'fíjate en el átomo central de la estructura de Lewis');
@@ -4847,6 +5114,24 @@
             `;
         }
 
+
+        function getElectronegativityPolarityInfoHTML(data = null) {
+            if (!currentScenario || currentScenario.type !== 'covalent' || !currentScenario.builder) return '';
+            const b = currentScenario.builder;
+            const symbols = [...new Set([b.center, ...(b.periph || [])])]
+                .filter(sym => elementsDB[sym] && elementsDB[sym].type === 'nonmetal');
+            const rows = symbols.map(sym => {
+                const en = electronegativityDB[sym];
+                return `<b>${sym}</b>: χ(${sym})=${en?.toFixed(2) ?? '—'}`;
+            });
+            if (!rows.length) return '';
+            return `<br><br><b>Electronegatividades de Pauling de los no metales implicados:</b><br>${rows.join('; ')}`;
+        }
+
+        function getElectronegativityShortHintHTML(data = null) {
+            return getElectronegativityPolarityInfoHTML(data).replace('<br><br>', '');
+        }
+
         function stepMolecularPolarity(isRetry = false, prev = {}) {
             if (!isRetry) currentStepAttempts = 0;
             const data = getMolecularGeometryData();
@@ -4863,7 +5148,7 @@
 
             safeSetTimeout(() => {
                 if (!isRetry) {
-                    addTutorMessage(`${data.isDiatomic ? 'Ahora vamos con la <b>polaridad molecular</b>: en una molécula diatómica, basta con decidir si el enlace entre los dos átomos es polar o apolar.' : 'Ahora vamos con la <b>polaridad molecular</b>: primero piensa si los enlaces individuales son polares y después si sus dipolos se anulan o no según la geometría.'}`);
+                    addTutorMessage(`${data.isDiatomic ? 'Ahora vamos con la <b>polaridad molecular</b>: en una molécula diatómica, basta con decidir si el enlace entre los dos átomos es polar o apolar.' : 'Ahora vamos con la <b>polaridad molecular</b>: primero piensa si los enlaces individuales son polares y después si sus dipolos se anulan o no según la geometría.'}${getElectronegativityPolarityInfoHTML(data)}`);
                 }
 
                 inputArea.innerHTML = `
@@ -4939,16 +5224,16 @@
                             molText = `la molécula es <b class="text-red-600 font-bold">apolar</b> porque no presenta dipolos apreciables`;
                         }
                         if (data.isDiatomic) renderDiatomicPolarityOnStage(true); else renderMolecularGeometryOnStage(true);
-                        addTutorMessage(`Has agotado tus 3 intentos. En este caso, ${bondText} y ${molText}.`);
+                        addTutorMessage(`Has agotado tus 3 intentos. En este caso, ${bondText} y ${molText}.${getElectronegativityPolarityInfoHTML(data)}`);
                         showContinueButton('stepParticleAttractions()', 'Seguir con interacciones entre partículas');
                     } else {
                         let hint = 'Compara primero si cada enlace es polar y, después, decide si la geometría cancela o no los dipolos.';
                         if (!data.individualBondsPolar) {
-                            hint = 'Fíjate en si los átomos que forman el enlace tienen electronegatividades prácticamente iguales o claramente distintas.';
+                            hint = `Fíjate primero en los valores de electronegatividad de los no metales implicados.<br>${getElectronegativityShortHintHTML(data)}`;
                         } else if (data.moleculePolar) {
-                            hint = `La molécula presenta enlaces polares. Ahora piensa si la geometría ${prettyShape[data.geometry]} deja un reparto asimétrico de esos dipolos.`;
+                            hint = `La molécula presenta enlaces polares. Ahora piensa si la geometría ${prettyShape[data.geometry]} deja un reparto asimétrico de esos dipolos.<br>${getElectronegativityShortHintHTML(data)}`;
                         } else {
-                            hint = `La molécula presenta enlaces polares, pero su geometría ${prettyShape[data.geometry]} puede repartirlos de forma simétrica.`;
+                            hint = `La molécula presenta enlaces polares, pero su geometría ${prettyShape[data.geometry]} puede repartirlos de forma simétrica.<br>${getElectronegativityShortHintHTML(data)}`;
                         }
                         addTutorMessage(`No exactamente.<br><br><b>Pista:</b> ${hint}`);
                         stepMolecularPolarity(true, { bondPolarity, moleculePolarity });
@@ -4997,7 +5282,7 @@
                 if (hasHBond) {
                     expected.push('hydrogen');
                     intensity = 'media';
-                    explanation += ' Además, al existir enlaces H–N, H–O o H–F, también aparecen puentes de hidrógeno.';
+                    explanation += ' Además, al existir enlaces H–N, H–O o H–F, también aparecen puentes de hidrógeno. Dentro de las fuerzas intermoleculares, los puentes de hidrógeno se consideran relativamente fuertes o intermedios; aun así, siguen siendo mucho más débiles que un enlace covalente de red, una red iónica o un enlace metálico.';
                 }
             } else if (type === 'ionic') {
                 expected = ['ion_ion']; intensity = 'fuerte'; mainConcept = 'Atracción electrostática entre iones';
@@ -5539,7 +5824,7 @@
                     mode: 'molecular',
                     expected: [...attraction.expected],
                     label: 'Fuerzas intermoleculares entre moléculas',
-                    explanation: `Para separar o desplazar moléculas hay que vencer fuerzas intermoleculares. En este caso, los subtipos presentes son: ${attraction.expected.map(k => attraction.labels[k]).join(', ')}.`
+                    explanation: `Para separar o desplazar moléculas hay que vencer fuerzas intermoleculares. En este caso, los subtipos presentes son: ${attraction.expected.map(k => attraction.labels[k]).join(', ')}.${attraction.expected.includes('hydrogen') ? ' Los puentes de hidrógeno son de las fuerzas intermoleculares más intensas, pero no equivalen a romper enlaces covalentes, iónicos ni metálicos.' : ''}`
                 };
             }
             if (type === 'ionic') return { mode: 'network', expected: ['ion_ion'], label: 'Atracciones electrostáticas ion-ion de la red', explanation: 'La sustancia está formada por una red de iones. Para fundirla, hervirla o rayarla hay que vencer atracciones electrostáticas fuertes entre iones de signo opuesto.' };
@@ -5589,6 +5874,8 @@
                             <div class="text-[14px] font-bold text-slate-700 mb-1">Interacciones entre partículas</div>
                             <div class="ml-4 space-y-0.5 text-sm">
                                 <label class="flex items-center gap-1.5 leading-snug"><input type="checkbox" class="mt-0 forceBreakCheck" value="london_atoms" ${checked('london_atoms')}><span>Fuerzas de dispersión de London</span></label>
+                                <label class="flex items-center gap-1.5 leading-snug"><input type="checkbox" class="mt-0 forceBreakCheck" value="dipole" ${checked('dipole')}><span>Fuerzas dipolo-dipolo</span></label>
+                                <label class="flex items-center gap-1.5 leading-snug"><input type="checkbox" class="mt-0 forceBreakCheck" value="hydrogen" ${checked('hydrogen')}><span>Puentes de hidrógeno</span></label>
                             </div>
                         </div>
                         <div class="bg-slate-50 border border-slate-200 rounded p-1.5">
@@ -6439,7 +6726,17 @@
         };
 
         window.cycleLp = function(pos) {
-            builderState.lp[pos] = (builderState.lp[pos] + 1) % 5; 
+            let maxLp = 0;
+            const diatomicCap = getDiatomicLonePairCap(pos);
+            if (diatomicCap !== null) {
+                maxLp = diatomicCap;
+            } else if (pos === 'center') {
+                const occupiedDirs = [0, 1, 2, 3].reduce((acc, idx) => acc + (builderState.placed[idx] ? 1 : 0), 0);
+                maxLp = Math.max(0, 4 - occupiedDirs);
+            } else {
+                maxLp = builderState.placed[pos] ? 3 : 0;
+            }
+            builderState.lp[pos] = (builderState.lp[pos] + 1) % (maxLp + 1);
             renderBuilderUI();
         };
         
