@@ -4921,6 +4921,9 @@
             }
 
             const b = currentScenario.builder;
+            const multipleBondVseprNote = ['CO2', 'CS2'].includes(currentScenario.form)
+                ? '<br><br><b>Aclaración TRPECV:</b> para deducir la geometría se cuentan <b>regiones o dominios electrónicos</b>, no pares sueltos. Cada enlace doble cuenta como <b>un solo dominio</b>. Por eso, en CO₂ hay dos enlaces dobles C=O: aunque contienen 4 pares de electrones compartidos, alrededor del C cuentan como <b>2 dominios</b>.'
+                : '';
             const atomOptions = [...new Set([b.center, ...b.periph])]
                 .map(sym => `<option value="${sym}" ${prev.focus === sym ? 'selected' : ''}>${sym}</option>`).join('');
 
@@ -4940,7 +4943,7 @@
                             </select>
                         </div>
                         <div class="bg-slate-50 border border-slate-200 rounded p-1.5 space-y-1">
-                            <label class="text-[14px] font-bold text-slate-600 block">2) ¿Cuántos pares de e⁻ enlazantes y solitarios hay a su alrededor?</label>
+                            <label class="text-[14px] font-bold text-slate-600 block">2) ¿Cuántos dominios electrónicos hay alrededor del átomo central, teniendo en cuenta los pares de electrones de enlace y los solitarios?</label>
                             <select id="geomDomains" class="border border-slate-300 rounded px-2 py-1 focus:ring-2 outline-none w-full text-sm bg-white text-slate-800">
                                 <option value="">Selecciona...</option>
                                 <option value="1" ${prev.domains === '1' ? 'selected' : ''}>1</option>
@@ -5018,7 +5021,7 @@
             const geomAngleEl = document.getElementById('geomAngle');
             const angleTextSelected = geomAngleEl?.options?.[geomAngleEl.selectedIndex]?.text || angle;
             inputArea.innerHTML = '';
-            addUserMessage(`Geometría: átomo de referencia ${focusText}; ${domains} pares de e⁻; geometría electrónica ${shapeLabels[eGeometry] || eGeometry}; geometría molecular ${shapeLabels[mGeometry] || mGeometry}; ángulo ${angleTextSelected}.`);
+            addUserMessage(`Geometría: átomo de referencia ${focusText}; ${domains} dominios electrónicos; geometría electrónica ${shapeLabels[eGeometry] || eGeometry}; geometría molecular ${shapeLabels[mGeometry] || mGeometry}; ángulo ${angleTextSelected}.`);
 
             const okFocus = data.isDiatomic ? (focus === 'any' || focus === data.center || focus === currentScenario.builder.periph[0]) : (focus === data.expectedFocus);
             const okDomains = parseInt(domains) === data.electronDomains;
@@ -5045,10 +5048,13 @@
                             renderLewisStructureOnStage();
                         }
                         const focusCorrect = data.expectedFocus === 'any' ? 'cualquiera de los dos átomos' : data.center;
-                        addTutorMessage(`Has usado los 3 intentos. Debemos fijarnos en <b>${focusCorrect}</b>. Hay <b>${data.electronDomains}</b> pares de electrones alrededor. La geometría electrónica correcta es <b>${shapeLabels[data.electronGeometry] || data.electronGeometry}</b>, la geometría molecular es <b class="text-red-600 font-bold">${shapeLabels[data.molecularGeometry] || data.molecularGeometry}</b> y el ángulo es <b>${data.angleText}</b>.`);
+                        addTutorMessage(`Has usado los 3 intentos. Debemos fijarnos en <b>${focusCorrect}</b>. Hay <b>${data.electronDomains}</b> dominios electrónicos alrededor. La geometría electrónica correcta es <b>${shapeLabels[data.electronGeometry] || data.electronGeometry}</b>, la geometría molecular es <b class="text-red-600 font-bold">${shapeLabels[data.molecularGeometry] || data.molecularGeometry}</b> y el ángulo es <b>${data.angleText}</b>.`);
                         showContinueButton('stepMolecularPolarity()', 'Continuar a polaridad');
                     } else {
                         let hints = [];
+                        const trpecvMultipleBondHint = ['CO2', 'CS2'].includes(currentScenario.form)
+                            ? 'Pista TRPECV: no cuentes los pares de electrones uno a uno. En TRPECV se cuentan dominios electrónicos alrededor del átomo central. Un enlace simple, doble o triple cuenta como un dominio. Por eso, en CO₂, el carbono tiene 2 dominios electrónicos, uno por cada enlace C=O.'
+                            : '';
                         if (!okFocus) hints.push(data.expectedFocus === 'any' ? 'en una molécula diatómica puedes fijarte en cualquiera de los dos átomos' : 'fíjate en el átomo central de la estructura de Lewis');
                         if (!okDomains) hints.push('cuenta enlaces alrededor del átomo central y también sus pares libres');
                         if (!okEGeometry) hints.push('la geometría electrónica considera todas las zonas de electrones: enlaces y pares solitarios');
@@ -5129,13 +5135,13 @@
             if (!currentScenario || currentScenario.type !== 'covalent' || !currentScenario.builder) return '';
             const b = currentScenario.builder;
             const symbols = [...new Set([b.center, ...(b.periph || [])])]
-                .filter(sym => elementsDB[sym] && elementsDB[sym].type === 'nonmetal');
+                .filter(sym => Object.prototype.hasOwnProperty.call(electronegativityDB, sym));
             const rows = symbols.map(sym => {
                 const en = electronegativityDB[sym];
                 return `<b>${sym}</b>: χ(${sym})=${en?.toFixed(2) ?? '—'}`;
             });
             if (!rows.length) return '';
-            return `<br><br><b>Electronegatividades de Pauling de los no metales implicados:</b><br>${rows.join('; ')}`;
+            return `<br><br><b>Electronegatividades de Pauling de los elementos implicados:</b><br>${rows.join('; ')}`;
         }
 
         function getElectronegativityShortHintHTML(data = null) {
@@ -5214,11 +5220,16 @@
             const center = currentScenario.builder.center;
             const uniqPeriph = [...new Set(currentScenario.builder.periph)];
             const bondLabel = uniqPeriph.map(sym => `${center}–${sym}`).join(', ');
+            const polarVectorMessage = data.individualBondsPolar
+                ? (data.moleculePolar
+                    ? ` Debido a la geometría ${prettyShape[data.geometry]}, la suma vectorial de los momentos dipolares de enlace no se anula; por eso el momento dipolar molecular resultante es distinto de 0.`
+                    : ` Aunque hay enlaces polares, debido a la geometría ${prettyShape[data.geometry]} la suma vectorial de los momentos dipolares de enlace se anula; por eso el momento dipolar molecular resultante es igual a 0.`)
+                : '';
 
             safeSetTimeout(() => {
                 if (bondPolarity === expectedBond && moleculePolarity === expectedMol) {
                     if (data.isDiatomic) renderDiatomicPolarityOnStage(true); else renderMolecularGeometryOnStage(true);
-                    addTutorMessage(`<b class="text-red-600 font-bold">¡Correcto!</b> Has relacionado bien la polaridad de los enlaces con la geometría molecular. Ahora vamos a estudiar las <b>fuerzas o interacciones entre partículas</b>.`);
+                    addTutorMessage(`<b class="text-red-600 font-bold">¡Correcto!</b> Has relacionado bien la polaridad de los enlaces con la geometría molecular.${polarVectorMessage} Ahora vamos a estudiar las <b>fuerzas o interacciones entre partículas</b>.`);
                     showContinueButton('stepParticleAttractions()', 'Seguir con interacciones entre partículas');
                 } else {
                     if (currentStepAttempts >= 3) {
@@ -5227,9 +5238,9 @@
                             : `los enlaces <b>${bondLabel}</b> son apolares o muy poco polares`;
                         let molText = '';
                         if (data.moleculePolar) {
-                            molText = `la molécula es <b class="text-red-600 font-bold">polar</b> porque su geometría ${prettyShape[data.geometry]} no anula los dipolos de enlace`;
+                            molText = `la molécula es <b class="text-red-600 font-bold">polar</b> porque su geometría ${prettyShape[data.geometry]} no anula los dipolos de enlace; la suma vectorial de los momentos dipolares de enlace da un momento dipolar molecular distinto de 0`;
                         } else if (data.individualBondsPolar) {
-                            molText = `la molécula es <b class="text-red-600 font-bold">apolar</b> porque su geometría ${prettyShape[data.geometry]} hace que los dipolos se anulen`;
+                            molText = `la molécula es <b class="text-red-600 font-bold">apolar</b> porque su geometría ${prettyShape[data.geometry]} hace que la suma vectorial de los momentos dipolares de enlace se anule; el momento dipolar molecular resultante es igual a 0`;
                         } else {
                             molText = `la molécula es <b class="text-red-600 font-bold">apolar</b> porque no presenta dipolos apreciables`;
                         }
@@ -5304,8 +5315,8 @@
                 expected = ['covalent_network']; intensity = 'muy_fuerte'; mainConcept = 'Enlaces covalentes de la red';
                 explanation = 'En las sustancias covalentes atómicas no hay moléculas independientes: toda la red está unida por enlaces covalentes, muy fuertes.';
             } else if (type === 'none') {
-                expected = ['london']; intensity = 'muy_debil'; mainConcept = 'Fuerzas de dispersión de London';
-                explanation = 'En los gases nobles las partículas son átomos aislados. No forman moléculas ni enlaces; solo aparecen fuerzas de dispersión de London muy débiles. Aunque son apolares, su solubilidad en disolventes apolares suele ser muy baja y aumenta al bajar en el grupo: He < Ne < Ar < Kr < Xe.';
+                expected = ['london']; intensity = 'muy_debil'; mainConcept = 'Fuerzas de Van der Waals';
+                explanation = 'En los gases nobles las partículas son átomos aislados. No forman moléculas ni enlaces; solo aparecen fuerzas de Van der Waals, concretamente fuerzas de dispersión de London muy débiles. Aunque son apolares, su solubilidad en disolventes apolares suele ser muy baja y aumenta al bajar en el grupo: He < Ne < Ar < Kr < Xe.';
             }
             return { expected, intensity, labels, intensityLabels, explanation, mainConcept };
         }
@@ -5327,9 +5338,10 @@
                     addTutorMessage(`Antes de deducir las propiedades físicas, identifica qué <b class="text-red-600 font-bold">interacciones entre partículas</b> actúan en esta sustancia y cuál es la intensidad predominante.${getInteractionStrengthScaleNote()}`);
                 }
                 const checked = (key) => (prev.forces || []).includes(key) ? 'checked' : '';
+                const weakForcesTitle = currentScenario.type === 'covalent' ? 'Fuerzas intermoleculares' : 'Fuerzas de Van der Waals';
                 const molecularBlock = `
                     <div class="bg-slate-50 border border-slate-200 rounded p-1.5">
-                        <div class="text-[14px] font-bold text-slate-700 mb-1">Fuerzas intermoleculares</div>
+                        <div class="text-[14px] font-bold text-slate-700 mb-1">${weakForcesTitle}</div>
                         <div class="ml-4 space-y-0.5 text-sm">
                             <label class="flex items-center gap-1.5 leading-snug"><input type="checkbox" class="mt-0 attractionCheck" value="london" ${checked('london')}><span>${data.labels.london}</span></label>
                             <label class="flex items-center gap-1.5 leading-snug"><input type="checkbox" class="mt-0 attractionCheck" value="dipole" ${checked('dipole')}><span>${data.labels.dipole}</span></label>
@@ -5613,8 +5625,22 @@
                 tough = 'fragil';
                 duct = 'nula';
                 hard = 'muy_duro';
-                therm = sc.form === 'SiO2' ? 'media_baja' : 'excepcional';
-                optic = 'adamantino';
+                if (sc.form === 'C') {
+                    therm = 'excepcional';
+                    optic = 'adamantino';
+                } else if (sc.form === 'SiC') {
+                    therm = 'excelente';
+                    optic = 'adamantino';
+                } else if (sc.form === 'SiO2') {
+                    therm = 'media_baja';
+                    optic = 'vitreo';
+                } else if (sc.form === 'C3N4') {
+                    therm = 'media_baja';
+                    optic = 'adamantino';
+                } else {
+                    therm = 'media_baja';
+                    optic = 'adamantino';
+                }
             } else if (type === 'ionic') { 
                 state = 'Sólido'; 
                 qualMelting = 'Alto';
@@ -5816,7 +5842,19 @@
                                 else if (type === 'covalent') helperHint += "• <b>Pista termo/óptica:</b> Al tener moléculas independientes que vibran débilmente, son malos conductores del calor. Visualmente pueden ser gases/líquidos transparentes o sólidos blandos de aspecto mate y ceroso.<br>";
                                 else if (type === 'ionic') helperHint += "• <b>Pista termo/óptica:</b> Los iones fijos no transmiten bien la vibración térmica (malos conductores). Visualmente forman cristales translúcidos o polvos con brillo vítreo.<br>";
                                 else if (type === 'metallic') helperHint += "• <b>Pista termo/óptica:</b> Su mar de electrones deslocalizados permite conducir electricidad y calor en sólido y también en estado fundido. No es un electrolito: conduce por electrones, no por iones disueltos.<br>";
-                                else if (type === 'covalent_atomic') helperHint += "• <b>Pista termo/óptica:</b> ¡Ojo con el calor! Su red ultrarrígida propaga las vibraciones térmicas a la perfección (excepcional conductor térmico). Ópticamente, su red dispersa la luz dando un brillo adamantino (como el diamante) o resinoso opaco.<br>";
+                                else if (type === 'covalent_atomic') {
+                                    if (currentScenario.form === 'C') {
+                                        helperHint += "• <b>Pista termo/óptica:</b> En el <b>diamante</b>, la red covalente rígida transmite muy bien las vibraciones térmicas: lo clasificamos como <b>conductividad térmica excepcionalmente alta</b>. Su brillo puede ser <b>adamantino</b>.<br>";
+                                    } else if (currentScenario.form === 'SiC') {
+                                        helperHint += "• <b>Pista termo/óptica:</b> El <b>carborundo (SiC)</b> conduce bastante bien el calor para ser una cerámica: en esta escala lo clasificamos como <b>excelente</b>, pero no como excepcional al nivel del diamante. Puede presentar brillo adamantino/submetálico según la muestra.<br>";
+                                    } else if (currentScenario.form === 'SiO2') {
+                                        helperHint += "• <b>Pista termo/óptica:</b> En el <b>cuarzo (SiO₂)</b> la conductividad térmica se considera <b>media-baja</b> en esta escala didáctica: no es un conductor térmico excepcional como el diamante. Ópticamente suele presentar <b>brillo vítreo</b> y puede ser transparente o translúcido.<br>";
+                                    } else if (currentScenario.form === 'C3N4') {
+                                        helperHint += "• <b>Pista termo/óptica:</b> En este simulador aparece <b>C₃N₄, nitruro de carbono</b>, no Si₃N₄. Para esta red didáctica no lo tratamos como conductor excepcional; lo clasificamos como <b>media-baja</b>. La idea importante es que sigue siendo una red covalente, pero no todas las redes covalentes conducen el calor como el diamante.<br>";
+                                    } else {
+                                        helperHint += "• <b>Pista termo/óptica:</b> En las redes covalentes atómicas no hay moléculas independientes; el calor se transmite por vibraciones de la red. Algunas, como el diamante, pueden ser conductores térmicos excepcionales, pero no todas las redes covalentes lo son.<br>";
+                                    }
+                                }
                             }
                             
                             addTutorMessage(`Cuidado, hay errores en los siguientes campos: <b class="text-indigo-600">${errors.join(', ')}</b>.<br><br>${helperHint || 'Vuelve a revisar la ficha analizando los enlaces de la red.'}`);
@@ -5860,11 +5898,12 @@
                     addTutorMessage(title + (force.mode === 'molecular' ? '<br><br>En una sustancia molecular conviene indicar los subtipos de fuerzas intermoleculares presentes.' : '') + getInteractionStrengthScaleNote());
                 }
                 const checked = (key) => prev.includes(key) ? 'checked' : '';
+                const weakForcesTitle = currentScenario.type === 'covalent' ? 'Fuerzas intermoleculares' : 'Fuerzas de Van der Waals';
                 let groups = '';
                 if (force.mode === 'molecular') {
                     groups = `
                         <div class="bg-slate-50 border border-slate-200 rounded p-1.5">
-                            <div class="text-[14px] font-bold text-slate-700 mb-1">Fuerzas intermoleculares, si hubiera moléculas</div>
+                            <div class="text-[14px] font-bold text-slate-700 mb-1">${weakForcesTitle}</div>
                             <div class="ml-4 space-y-0.5 text-sm">
                                 <label class="flex items-center gap-1.5 leading-snug"><input type="checkbox" class="mt-0 forceBreakCheck" value="london" ${checked('london')}><span>Fuerzas de dispersión de London</span></label>
                                 <label class="flex items-center gap-1.5 leading-snug"><input type="checkbox" class="mt-0 forceBreakCheck" value="dipole" ${checked('dipole')}><span>Fuerzas dipolo-dipolo</span></label>
@@ -5882,7 +5921,7 @@
                 } else if (force.mode === 'atomic') {
                     groups = `
                         <div class="bg-slate-50 border border-slate-200 rounded p-1.5">
-                            <div class="text-[14px] font-bold text-slate-700 mb-1">Interacciones entre partículas</div>
+                            <div class="text-[14px] font-bold text-slate-700 mb-1">Fuerzas de Van der Waals</div>
                             <div class="ml-4 space-y-0.5 text-sm">
                                 <label class="flex items-center gap-1.5 leading-snug"><input type="checkbox" class="mt-0 forceBreakCheck" value="london_atoms" ${checked('london_atoms')}><span>Fuerzas de dispersión de London</span></label>
                                 <label class="flex items-center gap-1.5 leading-snug"><input type="checkbox" class="mt-0 forceBreakCheck" value="dipole" ${checked('dipole')}><span>Fuerzas dipolo-dipolo</span></label>
@@ -5908,7 +5947,7 @@
                             </div>
                         </div>
                         <div class="bg-slate-50 border border-slate-200 rounded p-1.5">
-                            <div class="text-[14px] font-bold text-slate-700 mb-1">Fuerzas intermoleculares, si hubiera moléculas</div>
+                            <div class="text-[14px] font-bold text-slate-700 mb-1">${weakForcesTitle}</div>
                             <div class="ml-4 space-y-0.5 text-sm">
                                 <label class="flex items-center gap-1.5 leading-snug"><input type="checkbox" class="mt-0 forceBreakCheck" value="london" ${checked('london')}><span>Fuerzas de dispersión de London</span></label>
                                 <label class="flex items-center gap-1.5 leading-snug"><input type="checkbox" class="mt-0 forceBreakCheck" value="dipole" ${checked('dipole')}><span>Fuerzas dipolo-dipolo</span></label>
@@ -6205,10 +6244,10 @@
             const IMG = {
                 diamond: commons('Rough diamond.jpg'),
                 quartz: commons('Quartz, Tibet.jpg'),
-                sic: commons('Silicon carbide.jpg'),
+                sic: commons('Silicon carbide.JPG'),
                 halite: commons('Halit-Kristalle.jpg'),
                 fluorite: commons('Fluorite-270246.jpg'),
-                mgcl2: commons('Magnesium chloride powder.jpg'),
+                mgcl2: commons('Halit-Kristalle.jpg'),
                 water: commons('Water drop 001.jpg'),
                 bromine: commons('Bromine vial in acrylic cube.jpg'),
                 iodine: commons('Iodine-sample.jpg'),
@@ -6224,8 +6263,8 @@
                 magnesium: commons('Magnesium crystals.jpg'),
                 sodium: commons('Na (Sodium).jpg'),
                 lithium: commons('Lithium paraffin.jpg'),
-                calcium: commons('Calcium under argon argon plasma.jpg'),
-                fluorine: commons('Fluorine gas.jpg'),
+                calcium: commons('Calcium sample.jpg'),
+                fluorine: commons('Laboratory apparatus for reactions with fluorine gas.jpg'),
                 oxygen_discharge: commons('Oxygen discharge tube.jpg'),
                 nitrogen_discharge: commons('Nitrogen discharge tube.jpg')
             };
@@ -6241,7 +6280,7 @@
                 'H2':   { url: IMG.h2_ampoule, label: 'Hidrógeno en ampolla' },
                 'N2':   { url: IMG.gas_cylinders, label: 'Gas representativo en bombona / cilindro (nitrógeno)' },
                 'O2':   { url: IMG.gas_cylinders, label: 'Gas representativo en bombona / cilindro (oxígeno)' },
-                'F2':   { url: IMG.fluorine, label: 'Flúor (muestra real / representativa)' },
+                'F2':   { url: IMG.fluorine, label: 'Aparato de laboratorio representativo para flúor' },
                 'Cl2':  { url: IMG.chlorine_ampoule, label: 'Cloro en ampolla' },
                 'Br2':  { url: IMG.bromine, label: 'Bromo líquido' },
                 'I2':   { url: IMG.iodine, label: 'Yodo sólido' },
@@ -6297,12 +6336,12 @@
                 // Por si en otras ramas del simulador reaparecen
                 'NaCl': { url: IMG.halite, label: 'Cristales de halita / NaCl' },
                 'CaF2': { url: IMG.fluorite, label: 'Fluorita / CaF₂' },
-                'MgCl2':{ url: IMG.mgcl2, label: 'Cloruro de magnesio' },
+                'MgCl2':{ url: IMG.mgcl2, label: 'Cristal iónico representativo / cloruro de magnesio' },
                 'Al':   { url: IMG.aluminum, label: 'Aluminio metálico' },
                 'Mg':   { url: IMG.magnesium, label: 'Magnesio metálico' },
                 'Na':   { url: IMG.sodium, label: 'Sodio metálico' },
                 'Li':   { url: IMG.lithium, label: 'Litio metálico' },
-                'Ca':   { url: IMG.calcium, label: 'Calcio metálico' }
+                'Ca':   { url: IMG.calcium, label: 'Muestra de calcio metálico' }
             };
 
             let fallbackIcon = '';
